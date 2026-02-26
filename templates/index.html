@@ -2,33 +2,63 @@
 {% block title %}Home — ZTF–Gaia Cross-Match{% endblock %}
 {% block content %}
 <h2>Candidate Summary</h2>
-<p>Total candidates: {{ total_candidates }}</p>
-<p>Category A (no Gaia match): {{ cat_a_count }}</p>
-<p>Category B (Gaia match, not variable): {{ cat_b_count }}</p>
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-number">{{ total_candidates | default(0) }}</span>
+        <span class="stat-label">Total Candidates</span>
+    </div>
+    <div class="stat-card cat-a">
+        <span class="stat-number">{{ cat_a_count | default(0) }}</span>
+        <span class="stat-label">Category A<br><small>ZTF only (no Gaia match)</small></span>
+    </div>
+    <div class="stat-card cat-b">
+        <span class="stat-number">{{ cat_b_count | default(0) }}</span>
+        <span class="stat-label">Category B<br><small>ZTF+Gaia (not variable)</small></span>
+    </div>
+    <div class="stat-card cat-c">
+        <span class="stat-number">{{ cat_c_count | default(0) }}</span>
+        <span class="stat-label">Category C<br><small>Gaia only (no ZTF match)</small></span>
+    </div>
+</div>
 
 <h2>Top Candidates</h2>
 <table>
     <thead>
         <tr>
             <th>Rank</th>
-            <th>ZTF OID</th>
+            <th>ID</th>
             <th>RA</th>
             <th>Dec</th>
-            <th>Category</th>
+            <th>Cat</th>
             <th>Score</th>
+            <th>Amplitude</th>
+            <th>Nobs</th>
+            <th>Gaia G</th>
+            <th>Surveys</th>
         </tr>
     </thead>
     <tbody>
         {% for c in candidates %}
-        <tr>
+        <tr class="cat-{{ c.category | lower }}-row">
             <td>{{ loop.index }}</td>
-            <td><a href="sources/{{ c.oid }}.html">{{ c.oid }}</a></td>
+            <td><a href="sources/{{ c.id }}.html">{{ c.id }}</a></td>
             <td>{{ "%.5f"|format(c.ra) }}</td>
             <td>{{ "%.5f"|format(c.dec) }}</td>
-            <td>{{ c.category }}</td>
-            <td>{{ "%.2f"|format(c.score) }}</td>
+            <td><span class="cat-badge cat-{{ c.category | lower }}">{{ c.category }}</span></td>
+            <td>{{ "%.3f"|format(c.score) }}</td>
+            <td>{% if c.amplitude %}{{ "%.3f"|format(c.amplitude) }}{% else %}—{% endif %}</td>
+            <td>{% if c.nobs %}{{ c.nobs | int }}{% else %}—{% endif %}</td>
+            <td>{% if c.gaia_g_mag %}{{ "%.1f"|format(c.gaia_g_mag) }}{% else %}—{% endif %}</td>
+            <td>{{ c.survey_matches | default("") }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<h2>Category Descriptions</h2>
+<dl>
+    <dt>Category A</dt><dd>ZTF sources with <strong>no Gaia counterpart</strong> within 1.5″. Could be transients, high proper-motion objects, or ZTF artifacts.</dd>
+    <dt>Category B</dt><dd>ZTF sources matched to Gaia but <strong>not flagged as variable</strong> in Gaia DR3. Potentially new variable stars.</dd>
+    <dt>Category C</dt><dd>Gaia sources with <strong>no ZTF counterpart</strong> within 1.5″. Could be very red/faint sources below ZTF detection, sources in chip gaps, or transients that faded.</dd>
+</dl>
 {% endblock %}

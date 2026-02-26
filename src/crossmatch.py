@@ -99,10 +99,14 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
         Category A — ZTF sources with no Gaia counterpart within radius.
     cat_b : pd.DataFrame
         Category B — ZTF sources matched to Gaia but not in vari_summary.
+    cat_c : pd.DataFrame
+        Category C — Gaia sources with no ZTF counterpart within radius.
     """
     # Pivot ZTF to one row per source
     ztf_df = _pivot_ztf_by_filter(ztf_table.to_pandas())
     gaia_src_df = gaia_sources_table.to_pandas()
+    # Normalise Gaia column names to lowercase
+    gaia_src_df.columns = [c.lower() for c in gaia_src_df.columns]
 
     gaia_var_ids = set(gaia_variables_table["source_id"])
     logger.info(
@@ -120,17 +124,18 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
         dec=gaia_src_df["dec"].values * u.deg,
     )
 
+    # ── Forward match: ZTF → Gaia ──────────────────────────────────────
     idx, sep2d, _ = ztf_coords.match_to_catalog_sky(gaia_coords)
     matched = sep2d.arcsec <= XMATCH_RADIUS_ARCSEC
 
-    # Category A: no Gaia match
+    # Category A: ZTF source with no Gaia match
     cat_a = ztf_df[~matched].copy()
     cat_a["category"] = "A"
     cat_a["gaia_source_id"] = np.nan
     cat_a["gaia_g_mag"] = np.nan
-    logger.info("Category A (no Gaia match): %d sources", len(cat_a))
+    logger.info("Category A (ZTF, no Gaia match): %d sources", len(cat_a))
 
-    # Category B: Gaia match but NOT a known variable
+    # Category B: ZTF matched to Gaia but NOT a known variable
     matched_ztf = ztf_df[matched].copy()
     matched_gaia_idx = idx[matched]
     matched_ztf["gaia_source_id"] = gaia_src_df.iloc[matched_gaia_idx][
@@ -144,9 +149,28 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
     cat_b = matched_ztf[~is_known_var].copy()
     cat_b["category"] = "B"
     logger.info(
-        "Category B (Gaia match, not variable): %d sources "
+        "Category B (ZTF+Gaia, not variable): %d sources "
         "(discarded %d known variables)",
         len(cat_b), is_known_var.sum(),
     )
 
-    return cat_a, cat_b
+    # ── Reverse match: Gaia → ZTF ─────────────────────────────────────
+    gaia_idx, gaia_sep2d, _ = gaia_coords.match_to_catalog_sky(ztf_coords)
+    gaia_has_ztf = gaia_sep2d.arcsec <= XMATCH_RADIUS_ARCSEC
+
+    unmatched_gaia = gaia_src_df[~gaia_has_ztf].copy()
+    # Exclude known Gaia variables — we want sources Gaia sees but
+    # does NOT flag as variable and ZTF doesn't detect at all
+    is_gaia_var = unmatched_gaia["source_id"].isin(gaia_var_ids)
+    cat_c = unmatched_gaia[~is_gaia_var].copy()
+    cat_c["category"] = "C"
+    cat_c["oid"] = np.nan  # no ZTF counterpart
+    cat_c["gaia_source_id"] = cat_c["source_id"]
+    cat_c["gaia_g_mag"] = cat_c["phot_g_mean_mag"]
+    logger.info(
+        "Category C (Gaia, no ZTF match): %d sources "
+        "(discarded %d known variables)",
+        len(cat_c), is_gaia_var.sum(),
+    )
+
+    return cat_a, cat_b, cat_c

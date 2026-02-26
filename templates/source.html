@@ -1,12 +1,72 @@
 {% extends "base.html" %}
-{% block title %}{{ source.oid }} — ZTF–Gaia Cross-Match{% endblock %}
+{% block title %}{{ source.id }} — ZTF–Gaia Cross-Match{% endblock %}
 {% block content %}
-<h2>{{ source.oid }}</h2>
-<dl>
-    <dt>RA, Dec</dt><dd>{{ "%.5f"|format(source.ra) }}, {{ "%.5f"|format(source.dec) }}</dd>
-    <dt>Category</dt><dd>{{ source.category }}</dd>
-    <dt>Score</dt><dd>{{ "%.2f"|format(source.score) }}</dd>
-    <dt>Amplitude</dt><dd>{{ "%.4f"|format(source.amplitude) }} mag</dd>
-    <dt>Nobs</dt><dd>{{ source.nobs }}</dd>
-</dl>
+<h2>{{ source.id }} <span class="cat-badge cat-{{ source.category | lower }}">Category {{ source.category }}</span></h2>
+
+<div class="source-grid">
+    <div class="source-info">
+        <h3>Properties</h3>
+        <dl>
+            <dt>RA, Dec</dt><dd>{{ "%.6f"|format(source.ra) }}, {{ "%.6f"|format(source.dec) }}</dd>
+            <dt>Category</dt><dd>{{ source.category_desc }}</dd>
+            <dt>Score</dt><dd>{{ "%.4f"|format(source.score) }}</dd>
+            {% if source.oid %}<dt>ZTF OID</dt><dd>{{ source.oid }}</dd>{% endif %}
+            {% if source.gaia_source_id %}<dt>Gaia Source ID</dt><dd>{{ source.gaia_source_id }}</dd>{% endif %}
+        </dl>
+
+        {% if source.category != "C" %}
+        <h3>ZTF Variability</h3>
+        <dl>
+            {% if source.amplitude is not none %}<dt>Amplitude</dt><dd>{{ "%.4f"|format(source.amplitude) }} mag</dd>{% endif %}
+            {% if source.nobs is not none %}<dt>Nobs (best band)</dt><dd>{{ source.nobs | int }}</dd>{% endif %}
+            {% if source.n_filters is not none %}<dt>Filters</dt><dd>{{ source.n_filters | int }}</dd>{% endif %}
+            {% if source.chi2_red is not none %}<dt>Reduced χ²</dt><dd>{{ "%.2f"|format(source.chi2_red) }}</dd>{% endif %}
+        </dl>
+        {% endif %}
+
+        {% if source.gaia_g_mag is not none %}
+        <h3>Gaia Photometry</h3>
+        <dl>
+            <dt>G mag</dt><dd>{{ "%.2f"|format(source.gaia_g_mag) }}</dd>
+            {% if source.gaia_bp_mag is not none %}<dt>BP mag</dt><dd>{{ "%.2f"|format(source.gaia_bp_mag) }}</dd>{% endif %}
+            {% if source.gaia_rp_mag is not none %}<dt>RP mag</dt><dd>{{ "%.2f"|format(source.gaia_rp_mag) }}</dd>{% endif %}
+        </dl>
+        {% endif %}
+
+        <h3>Position</h3>
+        <dl>
+            <dt>Galactic lat |b|</dt><dd>{{ "%.2f"|format(source.gal_lat_abs) }}°</dd>
+        </dl>
+
+        {% if source.surveys %}
+        <h3>Multi-Survey Matches</h3>
+        {% for survey_name, match in source.surveys.items() %}
+        {% if match %}
+        <details>
+            <summary>{{ survey_name }}</summary>
+            <dl>
+                {% for k, v in match.items() %}
+                <dt>{{ k }}</dt><dd>{{ v }}</dd>
+                {% endfor %}
+            </dl>
+        </details>
+        {% endif %}
+        {% endfor %}
+        {% if not source.has_any_survey %}
+        <p class="muted">No matches in external surveys.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <div class="source-plots">
+        {% if source.lc_path %}
+        <h3>ZTF Light Curve</h3>
+        <img src="{{ url_prefix }}{{ source.lc_path }}" alt="Light curve for {{ source.id }}" class="lightcurve-img">
+        {% elif source.category != "C" %}
+        <p class="muted">No light curve available.</p>
+        {% endif %}
+    </div>
+</div>
+
+<p><a href="{{ url_prefix }}index.html">← Back to candidate list</a></p>
 {% endblock %}

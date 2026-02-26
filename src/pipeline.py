@@ -19,6 +19,9 @@ from .config import (
 from .tap_queries import query_ztf_objects, query_gaia_sources, query_gaia_variables
 from .crossmatch import crossmatch
 from .scoring import score_candidates
+from .lightcurves import fetch_and_plot_top_candidates
+from .multisurvey import crosscheck_candidates
+from .website import generate_website
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,8 +47,8 @@ def process_tile(tile_index):
 
     Steps:
     1. Compute tile bounding box
-    2. Query ZTF, Gaia sources, and Gaia variables via TAP
-    3. Positional cross-match
+    2. Query ZTF, Gaia sources, and Gaia variables
+    3. Positional cross-match (Categories A, B, C)
     4. Score and rank candidates
     5. Save per-tile results as Parquet
 
@@ -65,7 +68,7 @@ def process_tile(tile_index):
         tile_index, ra_min, ra_max, dec_min, dec_max,
     )
 
-    # ── TAP queries (with local caching) ─────────────────────────────
+    # ── Queries (with local caching) ──────────────────────────────────
     cache_dir = DATA_DIR / f"cache_{tile_index:05d}"
     cache_dir.mkdir(exist_ok=True)
     ztf_cache = cache_dir / "ztf_objects.parquet"
@@ -102,10 +105,10 @@ def process_tile(tile_index):
         return pd.DataFrame()
 
     # ── Cross-match ────────────────────────────────────────────────────
-    cat_a, cat_b = crossmatch(ztf_objects, gaia_sources, gaia_variables)
+    cat_a, cat_b, cat_c = crossmatch(ztf_objects, gaia_sources, gaia_variables)
 
     # ── Scoring ────────────────────────────────────────────────────────
-    candidates = score_candidates(cat_a, cat_b)
+    candidates = score_candidates(cat_a, cat_b, cat_c)
 
     # ── Save checkpoint ────────────────────────────────────────────────
     tile_path = TILES_DIR / f"tile_{tile_index:05d}.parquet"
@@ -120,22 +123,52 @@ def process_tile(tile_index):
     return candidates
 
 
-def run_pilot():
-    """Run the pipeline on the single pilot tile (RA=180, Dec=+30)."""
+def run_pilot(n_lightcurves=50, n_multisurvey=50, n_website=100):
+    """Run the full pipeline on the pilot tile, including Phase 3.
+
+    Parameters
+    ----------
+    n_lightcurves : int
+        Number of top candidates to fetch light curves for.
+    n_multisurvey : int
+        Number of top candidates for multi-survey cross-checks.
+    n_website : int
+        Number of top candidates to include on the website.
+    """
     logger.info("=== Pilot run: tile %d ===", PILOT_TILE)
     candidates = process_tile(PILOT_TILE)
 
-    if len(candidates) > 0:
-        output_path = RESULTS_DIR / "pilot_candidates.parquet"
-        candidates.to_parquet(output_path, index=False)
-        logger.info("Pilot results saved to %s", output_path)
-        logger.info("Top 10 candidates:")
-        top = candidates.head(10)[
-            ["oid", "ra", "dec", "category", "score", "best_amplitude", "best_nobs"]
-        ]
-        logger.info("\n%s", top.to_string())
-    else:
+    if len(candidates) == 0:
         logger.warning("Pilot produced no candidates")
+        return candidates
+
+    # Save full results
+    output_path = RESULTS_DIR / "pilot_candidates.parquet"
+    candidates.to_parquet(output_path, index=False)
+    logger.info("Pilot results saved to %s (%d candidates)", output_path, len(candidates))
+
+    # Print summary
+    logger.info("Top 10 candidates:")
+    cols = ["oid", "gaia_source_id", "ra", "dec", "category", "score"]
+    top = candidates.head(10)[cols]
+    logger.info("\n%s", top.to_string())
+
+    # ── Phase 3: Light curves ──────────────────────────────────────────
+    logger.info("=== Phase 3: Light curves ===")
+    lc_paths = fetch_and_plot_top_candidates(candidates, n_top=n_lightcurves)
+
+    # ── Phase 3: Multi-survey cross-checks ─────────────────────────────
+    logger.info("=== Phase 3: Multi-survey cross-checks ===")
+    survey_results = crosscheck_candidates(candidates, n_top=n_multisurvey)
+
+    # ── Phase 3: Website generation ────────────────────────────────────
+    logger.info("=== Phase 3: Website generation ===")
+    generate_website(
+        candidates,
+        lc_paths=lc_paths,
+        survey_results=survey_results,
+        n_top=n_website,
+    )
 
     return candidates
 
