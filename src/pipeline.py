@@ -123,7 +123,7 @@ def process_tile(tile_index):
     return candidates
 
 
-def run_pilot(n_lightcurves=50, n_multisurvey=50, n_website=100):
+def run_pilot(n_lightcurves=50, n_multisurvey=50, n_website=500):
     """Run the full pipeline on the pilot tile, including Phase 3.
 
     Parameters

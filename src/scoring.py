@@ -9,6 +9,9 @@ import astropy.units as u
 
 from .config import SCORING_WEIGHTS
 
+# Reject any source brighter than this in either ZTF or Gaia
+BRIGHT_MAG_LIMIT = 14.5
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +50,39 @@ def score_candidates(cat_a, cat_b, cat_c):
         logger.warning("No candidates to score")
         df["score"] = []
         return df
+
+    # ── Quality + brightness filter ──────────────────────────────────
+    n_before = len(df)
+    is_ztf_pre = df["category"].isin(["A", "B"])
+
+    # ZTF sources must have a valid magnitude in [BRIGHT_MAG_LIMIT, 25]
+    ztf_bad_mag = is_ztf_pre & (
+        df["best_meanmag"].isna()
+        | (df["best_meanmag"] <= 0)
+        | (df["best_meanmag"] > 25)
+        | (df["best_meanmag"] < BRIGHT_MAG_LIMIT)
+    )
+    # Also reject ZTF sources where Gaia G (if present) is too bright
+    gaia_bright_on_ztf = (
+        is_ztf_pre
+        & df["gaia_g_mag"].notna()
+        & (df["gaia_g_mag"] < BRIGHT_MAG_LIMIT)
+    )
+    # Gaia-only (Cat C) must have valid G mag >= limit
+    is_c_pre = df["category"] == "C"
+    gaia_bad = is_c_pre & (
+        df["gaia_g_mag"].isna()
+        | (df["gaia_g_mag"] < BRIGHT_MAG_LIMIT)
+    )
+
+    reject = ztf_bad_mag | gaia_bright_on_ztf | gaia_bad
+    df = df[~reject].reset_index(drop=True)
+    n_removed = n_before - len(df)
+    logger.info(
+        "Quality + brightness filter: removed %d / %d sources "
+        "(require valid mag >= %.1f)",
+        n_removed, n_before, BRIGHT_MAG_LIMIT,
+    )
 
     is_ztf = df["category"].isin(["A", "B"])
     is_c = df["category"] == "C"

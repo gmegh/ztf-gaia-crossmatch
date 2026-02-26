@@ -1,64 +1,98 @@
 {% extends "base.html" %}
 {% block title %}Home — ZTF–Gaia Cross-Match{% endblock %}
 {% block content %}
+
+<h2>Sky Coverage</h2>
+<div class="coverage-grid">
+    <div class="coverage-card">
+        <span class="coverage-number">{{ tiles_processed }}</span>
+        <span class="coverage-label">HEALPix tiles processed</span>
+    </div>
+    <div class="coverage-card">
+        <span class="coverage-number">{{ "%.1f"|format(area_sq_deg) }} deg&sup2;</span>
+        <span class="coverage-label">Sky area surveyed</span>
+    </div>
+    <div class="coverage-card">
+        <span class="coverage-number">{{ "%.4f"|format(sky_fraction * 100) }}%</span>
+        <span class="coverage-label">of full sky</span>
+    </div>
+</div>
+<p style="font-size:0.85rem; color:#555;">
+    Cross-match radius: {{ xmatch_radius }}&Prime; &nbsp;|&nbsp;
+    Bright mag limit: {{ bright_mag_limit }} mag &nbsp;|&nbsp;
+    HEALPix nside={{ nside }} ({{ total_tiles }} tiles total)
+</p>
+
 <h2>Candidate Summary</h2>
 <div class="stats-grid">
     <div class="stat-card">
         <span class="stat-number">{{ total_candidates | default(0) }}</span>
         <span class="stat-label">Total Candidates</span>
     </div>
-    <div class="stat-card cat-a">
+    <div class="stat-card cat-a" data-category="A">
         <span class="stat-number">{{ cat_a_count | default(0) }}</span>
         <span class="stat-label">Category A<br><small>ZTF only (no Gaia match)</small></span>
     </div>
-    <div class="stat-card cat-b">
+    <div class="stat-card cat-b" data-category="B">
         <span class="stat-number">{{ cat_b_count | default(0) }}</span>
         <span class="stat-label">Category B<br><small>ZTF+Gaia (not variable)</small></span>
     </div>
-    <div class="stat-card cat-c">
+    <div class="stat-card cat-c" data-category="C">
         <span class="stat-number">{{ cat_c_count | default(0) }}</span>
         <span class="stat-label">Category C<br><small>Gaia only (no ZTF match)</small></span>
     </div>
 </div>
+<p style="font-size:0.85rem; color:#555; margin-bottom:0.5rem;">Click a category card to filter the table below.</p>
 
-<h2>Top Candidates</h2>
+<h2 id="candidates-table">Top Candidates</h2>
+<div id="pagination" class="pagination"></div>
 <table>
     <thead>
         <tr>
-            <th>Rank</th>
-            <th>ID</th>
-            <th>RA</th>
-            <th>Dec</th>
-            <th>Cat</th>
-            <th>Score</th>
-            <th>Amplitude</th>
-            <th>Nobs</th>
-            <th>Gaia G</th>
-            <th>Surveys</th>
+            <th data-sort="rank">Rank</th>
+            <th data-sort="id">ID</th>
+            <th data-sort="ra">RA</th>
+            <th data-sort="dec">Dec</th>
+            <th data-sort="category">Cat</th>
+            <th data-sort="score" title="Weighted priority score combining variability indicators, observation depth, and sky position. Higher = more interesting candidate.">Score</th>
+            <th data-sort="amplitude" title="Peak-to-peak magnitude range in the best-observed ZTF band (g, r, or i). Larger values suggest stronger variability.">Amplitude</th>
+            <th data-sort="nobs" title="Number of good observations in the best-observed ZTF band. More observations increase confidence in the variability measurement.">Nobs</th>
+            <th data-sort="gaia_g_mag" title="Gaia G-band mean magnitude. Only available for Category B and C sources that have a Gaia counterpart.">Gaia G</th>
+            <th title="External survey matches from VizieR (2MASS, AllWISE, PS1, SDSS). Only checked for the top-ranked candidates.">Surveys</th>
         </tr>
     </thead>
-    <tbody>
-        {% for c in candidates %}
-        <tr class="cat-{{ c.category | lower }}-row">
-            <td>{{ loop.index }}</td>
-            <td><a href="sources/{{ c.id }}.html">{{ c.id }}</a></td>
-            <td>{{ "%.5f"|format(c.ra) }}</td>
-            <td>{{ "%.5f"|format(c.dec) }}</td>
-            <td><span class="cat-badge cat-{{ c.category | lower }}">{{ c.category }}</span></td>
-            <td>{{ "%.3f"|format(c.score) }}</td>
-            <td>{% if c.amplitude %}{{ "%.3f"|format(c.amplitude) }}{% else %}—{% endif %}</td>
-            <td>{% if c.nobs %}{{ c.nobs | int }}{% else %}—{% endif %}</td>
-            <td>{% if c.gaia_g_mag %}{{ "%.1f"|format(c.gaia_g_mag) }}{% else %}—{% endif %}</td>
-            <td>{{ c.survey_matches | default("") }}</td>
-        </tr>
-        {% endfor %}
+    <tbody id="candidates-tbody">
     </tbody>
 </table>
+<div id="pagination-bottom" class="pagination"></div>
+
+<!-- Candidate data as JSON for JS rendering -->
+<script id="candidate-data" type="application/json">{{ candidates_json }}</script>
+
+<details style="margin:1rem 0;">
+    <summary>Column Definitions</summary>
+    <dl class="column-legend">
+        <dt>Score</dt>
+        <dd>Weighted priority score (0&ndash;1) combining variability amplitude (25%), reduced &chi;&sup2; (20%), Gaia G brightness (20%, Cat B only), number of observations (15%), galactic latitude (10%), and number of filters (10%). Category C uses brightness + galactic latitude only.</dd>
+        <dt>Amplitude</dt>
+        <dd>Peak-to-peak magnitude range (max &minus; min) in the best-observed ZTF band. Larger values indicate stronger brightness variations. Not available for Category C (Gaia-only sources).</dd>
+        <dt>Nobs</dt>
+        <dd>Number of good observations in the best-observed ZTF band. Higher counts improve statistical confidence in variability measurements.</dd>
+        <dt>Gaia G</dt>
+        <dd>Mean apparent magnitude in the Gaia G band (330&ndash;1050 nm). Only available for sources with a Gaia counterpart (Categories B and C).</dd>
+        <dt>Surveys</dt>
+        <dd>External catalogs with a positional match within 3&Prime; (VizieR cone search). Checked for the top {{ n_surveyed }} candidates only: 2MASS, AllWISE, PanSTARRS DR1, SDSS DR12.</dd>
+    </dl>
+</details>
 
 <h2>Category Descriptions</h2>
 <dl>
-    <dt>Category A</dt><dd>ZTF sources with <strong>no Gaia counterpart</strong> within 1.5″. Could be transients, high proper-motion objects, or ZTF artifacts.</dd>
+    <dt>Category A</dt><dd>ZTF sources with <strong>no Gaia counterpart</strong> within {{ xmatch_radius }}&Prime;. Could be transients, high proper-motion objects, or ZTF artifacts.</dd>
     <dt>Category B</dt><dd>ZTF sources matched to Gaia but <strong>not flagged as variable</strong> in Gaia DR3. Potentially new variable stars.</dd>
-    <dt>Category C</dt><dd>Gaia sources with <strong>no ZTF counterpart</strong> within 1.5″. Could be very red/faint sources below ZTF detection, sources in chip gaps, or transients that faded.</dd>
+    <dt>Category C</dt><dd>Gaia sources with <strong>no ZTF counterpart</strong> within {{ xmatch_radius }}&Prime;. Could be very red/faint sources below ZTF detection, sources in chip gaps, or transients that faded.</dd>
 </dl>
+<p style="font-size:0.85rem; color:#555; margin-top:0.5rem;">
+    Sources brighter than <strong>{{ bright_mag_limit }} mag</strong> (in either ZTF or Gaia G) are excluded due to ZTF saturation.
+    Sources with missing or invalid photometry are also removed.
+</p>
 {% endblock %}

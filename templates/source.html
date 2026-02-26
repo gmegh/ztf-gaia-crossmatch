@@ -20,7 +20,7 @@
             {% if source.amplitude is not none %}<dt>Amplitude</dt><dd>{{ "%.4f"|format(source.amplitude) }} mag</dd>{% endif %}
             {% if source.nobs is not none %}<dt>Nobs (best band)</dt><dd>{{ source.nobs | int }}</dd>{% endif %}
             {% if source.n_filters is not none %}<dt>Filters</dt><dd>{{ source.n_filters | int }}</dd>{% endif %}
-            {% if source.chi2_red is not none %}<dt>Reduced χ²</dt><dd>{{ "%.2f"|format(source.chi2_red) }}</dd>{% endif %}
+            {% if source.chi2_red is not none %}<dt>Reduced &chi;&sup2;</dt><dd>{{ "%.2f"|format(source.chi2_red) }}</dd>{% endif %}
         </dl>
         {% endif %}
 
@@ -35,7 +35,7 @@
 
         <h3>Position</h3>
         <dl>
-            <dt>Galactic lat |b|</dt><dd>{{ "%.2f"|format(source.gal_lat_abs) }}°</dd>
+            <dt>Galactic lat |b|</dt><dd>{{ "%.2f"|format(source.gal_lat_abs) }}&deg;</dd>
         </dl>
 
         {% if source.surveys %}
@@ -59,6 +59,36 @@
     </div>
 
     <div class="source-plots">
+        <h3>Sky Images</h3>
+        <div class="sky-cutouts">
+            <div class="sky-cutout">
+                <img src="{{ source.ztf_hips_url }}" alt="ZTF DR7 g-band" loading="lazy"
+                     id="ztf-img"
+                     onerror="this.style.display='none'; document.getElementById('ztf-placeholder').style.display='flex';">
+                <div class="image-placeholder" id="ztf-placeholder" style="display:none;">
+                    <span class="placeholder-icon">&#x1F52D;</span>
+                    No ZTF image available
+                </div>
+                <div class="cutout-label">ZTF DR7 (g-band)</div>
+            </div>
+            <div class="sky-cutout">
+                <iframe src="{{ source.aladin_url }}" title="Gaia sky view" loading="lazy"
+                        id="gaia-iframe"
+                        onerror="this.style.display='none'; document.getElementById('gaia-placeholder').style.display='flex';"></iframe>
+                <div class="image-placeholder" id="gaia-placeholder" style="display:none;">
+                    <span class="placeholder-icon">&#x2B50;</span>
+                    Interactive view unavailable
+                    <a href="{{ source.aladin_url }}" target="_blank">Open Aladin Lite</a>
+                </div>
+                <div class="cutout-label">Interactive Sky View (<a href="{{ source.aladin_url }}" target="_blank">Aladin Lite</a>)</div>
+            </div>
+        </div>
+        <div class="external-links">
+            <a href="{{ source.esasky_url }}" target="_blank">ESASky</a>
+            <a href="{{ source.simbad_url }}" target="_blank">SIMBAD</a>
+            <a href="{{ source.legacy_survey_url }}" target="_blank">Legacy Survey</a>
+        </div>
+
         {% if source.lc_path %}
         <h3>ZTF Light Curve</h3>
         <img src="{{ url_prefix }}{{ source.lc_path }}" alt="Light curve for {{ source.id }}" class="lightcurve-img">
@@ -68,5 +98,5 @@
     </div>
 </div>
 
-<p><a href="{{ url_prefix }}index.html">← Back to candidate list</a></p>
+<p><a href="{{ url_prefix }}index.html">&larr; Back to candidate list</a></p>
 {% endblock %}

@@ -28,7 +28,7 @@ PILOT_DEC = 30.0   # deg
 PILOT_TILE = hp.ang2pix(NSIDE, PILOT_RA, PILOT_DEC, lonlat=True, nest=True)
 
 # ── Cross-match ────────────────────────────────────────────────────────
-XMATCH_RADIUS_ARCSEC = 1.5
+XMATCH_RADIUS_ARCSEC = 1.0
 
 # ── TAP query settings ────────────────────────────────────────────────
 TAP_MAX_RETRIES = 3
