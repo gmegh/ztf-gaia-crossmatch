@@ -199,8 +199,26 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
         SOFT_MATCH_RADIUS_ARCSEC, SOFT_MATCH_MAG_TOL,
     )
 
-    # Store nearest ZTF separation for remaining Cat C (useful for filtering)
+    # Store nearest ZTF info for remaining Cat C, but only when within
+    # a meaningful radius (2").  Anything farther is irrelevant.
+    NEARBY_RADIUS_ARCSEC = 2.0
     remaining_idx = cat_c.index.values
-    cat_c["nearest_ztf_sep"] = gaia_sep2d.arcsec[remaining_idx]
+    remaining_sep = gaia_sep2d.arcsec[remaining_idx]
+    remaining_nearest_ztf = gaia_idx[remaining_idx]
+    remaining_ztf_mag = ztf_df.iloc[remaining_nearest_ztf]["best_meanmag"].values
+
+    nearby = remaining_sep <= NEARBY_RADIUS_ARCSEC
+    cat_c["nearest_ztf_sep"] = np.where(nearby, remaining_sep, np.nan)
+    cat_c["nearest_ztf_mag"] = np.where(nearby, remaining_ztf_mag, np.nan)
+    cat_c["nearest_ztf_mag_diff"] = np.where(
+        nearby,
+        np.abs(cat_c["phot_g_mean_mag"].values - remaining_ztf_mag),
+        np.nan,
+    )
+    n_nearby = int(nearby.sum())
+    logger.info(
+        "  %d Cat C sources have a ZTF neighbor within %.1f\"",
+        n_nearby, NEARBY_RADIUS_ARCSEC,
+    )
 
     return cat_a, cat_b, cat_c

@@ -64,6 +64,149 @@ def _vizier_cone_search(ra, dec, catalog_key, radius_arcsec=3.0):
     return None
 
 
+def _query_sdss_region(candidates):
+    """Query SDSS DR12 for the coordinate region covered by candidates.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        SDSS sources in the region, or None on failure.
+    """
+    ra_min = candidates["ra"].min() - 0.01
+    ra_max = candidates["ra"].max() + 0.01
+    dec_min = candidates["dec"].min() - 0.01
+    dec_max = candidates["dec"].max() + 0.01
+
+    v = Vizier(columns=["RA_ICRS", "DE_ICRS", "gmag"], row_limit=-1)
+    try:
+        center = SkyCoord(
+            ra=(ra_min + ra_max) / 2 * u.deg,
+            dec=(dec_min + dec_max) / 2 * u.deg,
+        )
+        width = max(ra_max - ra_min, dec_max - dec_min) * u.deg
+        result = v.query_region(
+            center, width=width, height=width,
+            catalog="V/147/sdss12",
+        )
+        if not result or len(result) == 0 or len(result[0]) == 0:
+            return None
+        return result[0].to_pandas()
+    except Exception as exc:
+        logger.warning("SDSS bulk query failed: %s", exc)
+        return None
+
+
+def filter_sdss(candidates, cat_a_radius=1.0, cat_c_radius=3.0):
+    """Remove Cat A and Cat C candidates that have an SDSS counterpart.
+
+    Cat C: if a Gaia source exists in SDSS but not in ZTF, it's likely
+    a ZTF coverage/processing issue — remove it.
+    Cat A: if a ZTF source has no Gaia match but does have an SDSS match,
+    the source is known and likely not a novel transient.
+
+    Parameters
+    ----------
+    candidates : pd.DataFrame
+        Scored candidates (all categories).
+    cat_a_radius : float
+        Match radius (arcsec) for Cat A SDSS cross-match.
+    cat_c_radius : float
+        Match radius (arcsec) for Cat C SDSS cross-match.
+
+    Returns
+    -------
+    pd.DataFrame
+        Candidates with SDSS-matched Cat A/C entries removed.
+    """
+    sdss = _query_sdss_region(candidates)
+    if sdss is None:
+        logger.info("SDSS filter: no SDSS sources in region, skipping")
+        return candidates
+
+    logger.info("SDSS filter: %d SDSS sources in region", len(sdss))
+
+    sdss_coords = SkyCoord(
+        ra=sdss["RA_ICRS"].values * u.deg,
+        dec=sdss["DE_ICRS"].values * u.deg,
+    )
+
+    total_removed = 0
+
+    # ── Filter Cat C ────────────────────────────────────────────────
+    cat_c = candidates[candidates["category"] == "C"]
+    if len(cat_c) > 0:
+        n_before_c = len(cat_c)
+        coords_c = SkyCoord(
+            ra=cat_c["ra"].values * u.deg,
+            dec=cat_c["dec"].values * u.deg,
+        )
+        _, sep_c, _ = coords_c.match_to_catalog_sky(sdss_coords)
+        has_sdss_c = sep_c.arcsec <= cat_c_radius
+
+        remove_ids_c = set(
+            cat_c[has_sdss_c]["gaia_source_id"].apply(
+                lambda x: str(int(x)) if pd.notna(x) else ""
+            )
+        )
+        if remove_ids_c:
+            mask_c = candidates["gaia_source_id"].apply(
+                lambda x: str(int(x)) if pd.notna(x) else ""
+            ).isin(remove_ids_c)
+            candidates = candidates[~mask_c].reset_index(drop=True)
+
+        n_removed_c = int(has_sdss_c.sum())
+        total_removed += n_removed_c
+        logger.info(
+            "SDSS filter: removed %d / %d Cat C (SDSS match within %.1f\")",
+            n_removed_c, n_before_c, cat_c_radius,
+        )
+
+    # ── Filter Cat A ────────────────────────────────────────────────
+    cat_a = candidates[candidates["category"] == "A"]
+    if len(cat_a) > 0:
+        n_before_a = len(cat_a)
+        coords_a = SkyCoord(
+            ra=cat_a["ra"].values * u.deg,
+            dec=cat_a["dec"].values * u.deg,
+        )
+        _, sep_a, _ = coords_a.match_to_catalog_sky(sdss_coords)
+        has_sdss_a = sep_a.arcsec <= cat_a_radius
+
+        remove_idx_a = cat_a.index[has_sdss_a]
+        candidates = candidates.drop(remove_idx_a).reset_index(drop=True)
+
+        n_removed_a = int(has_sdss_a.sum())
+        total_removed += n_removed_a
+        logger.info(
+            "SDSS filter: removed %d / %d Cat A (SDSS match within %.1f\")",
+            n_removed_a, n_before_a, cat_a_radius,
+        )
+
+    # ── Filter Cat B ────────────────────────────────────────────────
+    cat_b = candidates[candidates["category"] == "B"]
+    if len(cat_b) > 0:
+        n_before_b = len(cat_b)
+        coords_b = SkyCoord(
+            ra=cat_b["ra"].values * u.deg,
+            dec=cat_b["dec"].values * u.deg,
+        )
+        _, sep_b, _ = coords_b.match_to_catalog_sky(sdss_coords)
+        has_sdss_b = sep_b.arcsec <= cat_c_radius
+
+        remove_idx_b = cat_b.index[has_sdss_b]
+        candidates = candidates.drop(remove_idx_b).reset_index(drop=True)
+
+        n_removed_b = int(has_sdss_b.sum())
+        total_removed += n_removed_b
+        logger.info(
+            "SDSS filter: removed %d / %d Cat B (SDSS match within %.1f\")",
+            n_removed_b, n_before_b, cat_c_radius,
+        )
+
+    logger.info("SDSS filter: %d total candidates removed", total_removed)
+    return candidates
+
+
 def crosscheck_source(ra, dec):
     """Cross-check a single source against all external surveys.
 

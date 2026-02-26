@@ -58,6 +58,9 @@
             <th data-sort="amplitude" title="Peak-to-peak magnitude range in the best-observed ZTF band (g, r, or i). Larger values suggest stronger variability.">Amplitude</th>
             <th data-sort="nobs" title="Number of good observations in the best-observed ZTF band. More observations increase confidence in the variability measurement.">Nobs</th>
             <th data-sort="gaia_g_mag" title="Gaia G-band mean magnitude. Only available for Category B and C sources that have a Gaia counterpart.">Gaia G</th>
+            <th data-sort="nearest_ztf_sep" title="Angular separation to nearest ZTF catalog source (arcsec). Cat C only — from catalog cross-match, not forced photometry.">ZTF cat sep</th>
+            <th data-sort="nearest_ztf_mag" title="Mean magnitude of nearest ZTF catalog source. Cat C only — from catalog, not forced photometry.">ZTF cat mag</th>
+            <th data-sort="nearest_ztf_mag_diff" title="Absolute magnitude difference |Gaia G − nearest ZTF catalog mag|. Cat C only. Small values suggest the same object.">|&Delta;mag|</th>
             <th title="External survey matches from VizieR (2MASS, AllWISE, PS1, SDSS). Only checked for the top-ranked candidates.">Surveys</th>
         </tr>
     </thead>
@@ -80,6 +83,12 @@
         <dd>Number of good observations in the best-observed ZTF band. Higher counts improve statistical confidence in variability measurements.</dd>
         <dt>Gaia G</dt>
         <dd>Mean apparent magnitude in the Gaia G band (330&ndash;1050 nm). Only available for sources with a Gaia counterpart (Categories B and C).</dd>
+        <dt>ZTF cat sep</dt>
+        <dd>Angular separation (arcsec) to the nearest ZTF <em>catalog</em> source (within 5&Prime;). Only for Category C. Sources within 2&Prime; with consistent brightness were already removed as false positives. This is from the ZTF object catalog, not forced photometry.</dd>
+        <dt>ZTF cat mag</dt>
+        <dd>Mean magnitude of the nearest ZTF catalog source. Compare with Gaia G to assess whether the Gaia source might be the same object.</dd>
+        <dt>|&Delta;mag|</dt>
+        <dd>Absolute magnitude difference between Gaia G and the nearest ZTF catalog source. Small values (&lt; 2 mag) suggest the sources might be the same object with an astrometric offset.</dd>
         <dt>Surveys</dt>
         <dd>External catalogs with a positional match within 3&Prime; (VizieR cone search). Checked for the top {{ n_surveyed }} candidates only: 2MASS, AllWISE, PanSTARRS DR1, SDSS DR12.</dd>
     </dl>

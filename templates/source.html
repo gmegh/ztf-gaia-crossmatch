@@ -33,6 +33,15 @@
         </dl>
         {% endif %}
 
+        {% if source.category == "C" and source.nearest_ztf_sep is not none %}
+        <h3>Nearest ZTF Catalog Source</h3>
+        <dl>
+            <dt>Separation</dt><dd>{{ "%.2f"|format(source.nearest_ztf_sep) }}&Prime;</dd>
+            {% if source.nearest_ztf_mag is not none %}<dt>ZTF mag</dt><dd>{{ "%.2f"|format(source.nearest_ztf_mag) }}</dd>{% endif %}
+            {% if source.nearest_ztf_mag_diff is not none %}<dt>|Gaia G &minus; ZTF mag|</dt><dd>{{ "%.2f"|format(source.nearest_ztf_mag_diff) }} mag</dd>{% endif %}
+        </dl>
+        {% endif %}
+
         <h3>Position</h3>
         <dl>
             <dt>Galactic lat |b|</dt><dd>{{ "%.2f"|format(source.gal_lat_abs) }}&deg;</dd>

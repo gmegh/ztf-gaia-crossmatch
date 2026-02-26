@@ -177,6 +177,9 @@ def generate_website(candidates, lc_paths=None, survey_results=None, n_top=100):
             "amplitude": round(float(row["best_amplitude"]), 4) if pd.notna(row.get("best_amplitude")) else None,
             "nobs": int(row["best_nobs"]) if pd.notna(row.get("best_nobs")) else None,
             "gaia_g_mag": round(float(row["gaia_g_mag"]), 2) if pd.notna(row.get("gaia_g_mag")) else None,
+            "nearest_ztf_sep": round(float(row["nearest_ztf_sep"]), 2) if pd.notna(row.get("nearest_ztf_sep")) else None,
+            "nearest_ztf_mag": round(float(row["nearest_ztf_mag"]), 2) if pd.notna(row.get("nearest_ztf_mag")) else None,
+            "nearest_ztf_mag_diff": round(float(row["nearest_ztf_mag_diff"]), 2) if pd.notna(row.get("nearest_ztf_mag_diff")) else None,
             "survey_matches": ", ".join(matched) if matched else "",
         })
 
@@ -227,6 +230,9 @@ def generate_website(candidates, lc_paths=None, survey_results=None, n_top=100):
             "gaia_bp_mag": gaia_bp,
             "gaia_rp_mag": gaia_rp,
             "gal_lat_abs": row.get("gal_lat_abs", 0),
+            "nearest_ztf_sep": _safe_float(row.get("nearest_ztf_sep")),
+            "nearest_ztf_mag": _safe_float(row.get("nearest_ztf_mag")),
+            "nearest_ztf_mag_diff": _safe_float(row.get("nearest_ztf_mag_diff")),
             "lc_path": lc_paths.get(ident),
             "surveys": surveys,
             "has_any_survey": has_any_survey,

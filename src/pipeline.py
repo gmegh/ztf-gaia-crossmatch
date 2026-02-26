@@ -20,7 +20,7 @@ from .tap_queries import query_ztf_objects, query_gaia_sources, query_gaia_varia
 from .crossmatch import crossmatch
 from .scoring import score_candidates
 from .lightcurves import fetch_and_plot_top_candidates
-from .multisurvey import crosscheck_candidates
+from .multisurvey import crosscheck_candidates, filter_sdss
 from .website import generate_website
 
 logging.basicConfig(
@@ -123,7 +123,7 @@ def process_tile(tile_index):
     return candidates
 
 
-def run_pilot(n_lightcurves=50, n_multisurvey=50, n_website=500):
+def run_pilot(n_lightcurves=500, n_multisurvey=50, n_website=500):
     """Run the full pipeline on the pilot tile, including Phase 3.
 
     Parameters
@@ -141,6 +141,10 @@ def run_pilot(n_lightcurves=50, n_multisurvey=50, n_website=500):
     if len(candidates) == 0:
         logger.warning("Pilot produced no candidates")
         return candidates
+
+    # ── SDSS filter: remove Cat A/C sources with SDSS counterpart ─────
+    logger.info("=== SDSS filter for Cat A & C ===")
+    candidates = filter_sdss(candidates, cat_a_radius=1.0, cat_c_radius=3.0)
 
     # Save full results
     output_path = RESULTS_DIR / "pilot_candidates.parquet"
