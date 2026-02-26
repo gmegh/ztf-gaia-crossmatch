@@ -1,0 +1,10 @@
+astroquery
+astropy
+pandas
+numpy
+matplotlib
+requests
+healpy
+tqdm
+jinja2
+pyarrow

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ source.oid }} — ZTF–Gaia Cross-Match{% endblock %}
+{% block content %}
+<h2>{{ source.oid }}</h2>
+<dl>
+    <dt>RA, Dec</dt><dd>{{ "%.5f"|format(source.ra) }}, {{ "%.5f"|format(source.dec) }}</dd>
+    <dt>Category</dt><dd>{{ source.category }}</dd>
+    <dt>Score</dt><dd>{{ "%.2f"|format(source.score) }}</dd>
+    <dt>Amplitude</dt><dd>{{ "%.4f"|format(source.amplitude) }} mag</dd>
+    <dt>Nobs</dt><dd>{{ source.nobs }}</dd>
+</dl>
+{% endblock %}

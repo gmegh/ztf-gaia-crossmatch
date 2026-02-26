@@ -1,0 +1,24 @@
+# Virtual environment
+ztf-gaia/
+
+# Data and cache
+data/
+*.parquet
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/

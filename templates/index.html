@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Home — ZTF–Gaia Cross-Match{% endblock %}
+{% block content %}
+<h2>Candidate Summary</h2>
+<p>Total candidates: {{ total_candidates }}</p>
+<p>Category A (no Gaia match): {{ cat_a_count }}</p>
+<p>Category B (Gaia match, not variable): {{ cat_b_count }}</p>
+
+<h2>Top Candidates</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>ZTF OID</th>
+            <th>RA</th>
+            <th>Dec</th>
+            <th>Category</th>
+            <th>Score</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in candidates %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td><a href="sources/{{ c.oid }}.html">{{ c.oid }}</a></td>
+            <td>{{ "%.5f"|format(c.ra) }}</td>
+            <td>{{ "%.5f"|format(c.dec) }}</td>
+            <td>{{ c.category }}</td>
+            <td>{{ "%.2f"|format(c.score) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
