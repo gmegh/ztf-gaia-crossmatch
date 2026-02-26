@@ -3,10 +3,13 @@
 import json
 import logging
 import sys
+from pathlib import Path
 
 import pandas as pd
+from astropy.table import Table
 
 from .config import (
+    DATA_DIR,
     PILOT_TILE,
     TILES_DIR,
     RESULTS_DIR,
@@ -33,7 +36,7 @@ def _load_progress():
 
 def _save_progress(completed):
     """Persist the set of completed tile indices."""
-    PROGRESS_FILE.write_text(json.dumps(sorted(completed)))
+    PROGRESS_FILE.write_text(json.dumps(sorted(int(x) for x in completed)))
 
 
 def process_tile(tile_index):
@@ -62,10 +65,33 @@ def process_tile(tile_index):
         tile_index, ra_min, ra_max, dec_min, dec_max,
     )
 
-    # ── TAP queries ────────────────────────────────────────────────────
-    ztf_objects = query_ztf_objects(ra_min, ra_max, dec_min, dec_max)
-    gaia_sources = query_gaia_sources(ra_min, ra_max, dec_min, dec_max)
-    gaia_variables = query_gaia_variables(ra_min, ra_max, dec_min, dec_max)
+    # ── TAP queries (with local caching) ─────────────────────────────
+    cache_dir = DATA_DIR / f"cache_{tile_index:05d}"
+    cache_dir.mkdir(exist_ok=True)
+    ztf_cache = cache_dir / "ztf_objects.parquet"
+    gaia_src_cache = cache_dir / "gaia_sources.parquet"
+    gaia_var_cache = cache_dir / "gaia_variables.parquet"
+
+    if ztf_cache.exists():
+        logger.info("Loading cached ZTF objects from %s", ztf_cache)
+        ztf_objects = Table.from_pandas(pd.read_parquet(ztf_cache))
+    else:
+        ztf_objects = query_ztf_objects(ra_min, ra_max, dec_min, dec_max)
+        ztf_objects.to_pandas().to_parquet(ztf_cache, index=False)
+
+    if gaia_src_cache.exists():
+        logger.info("Loading cached Gaia sources from %s", gaia_src_cache)
+        gaia_sources = Table.from_pandas(pd.read_parquet(gaia_src_cache))
+    else:
+        gaia_sources = query_gaia_sources(ra_min, ra_max, dec_min, dec_max)
+        gaia_sources.to_pandas().to_parquet(gaia_src_cache, index=False)
+
+    if gaia_var_cache.exists():
+        logger.info("Loading cached Gaia variables from %s", gaia_var_cache)
+        gaia_variables = Table.from_pandas(pd.read_parquet(gaia_var_cache))
+    else:
+        gaia_variables = query_gaia_variables(ra_min, ra_max, dec_min, dec_max)
+        gaia_variables.to_pandas().to_parquet(gaia_var_cache, index=False)
 
     if len(ztf_objects) == 0:
         logger.warning("Tile %d: no ZTF objects returned", tile_index)
@@ -105,7 +131,7 @@ def run_pilot():
         logger.info("Pilot results saved to %s", output_path)
         logger.info("Top 10 candidates:")
         top = candidates.head(10)[
-            ["oid", "ra", "dec", "category", "score", "amplitude", "nobs"]
+            ["oid", "ra", "dec", "category", "score", "best_amplitude", "best_nobs"]
         ]
         logger.info("\n%s", top.to_string())
     else:

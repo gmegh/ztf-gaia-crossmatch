@@ -8,3 +8,4 @@ healpy
 tqdm
 jinja2
 pyarrow
+scipy

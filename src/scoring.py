@@ -4,42 +4,12 @@ import logging
 
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, Galactic
+from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 from .config import SCORING_WEIGHTS
 
 logger = logging.getLogger(__name__)
-
-
-def _best_band_stats(df):
-    """Compute per-source best-band variability statistics.
-
-    For each source, pick the band with the most observations and return:
-    amplitude (rms_mag), nobs, chi2_reduced, and number of filters observed.
-    """
-    bands = ["g", "r", "i"]
-    nobs_cols = [f"nobs_{b}" for b in bands]
-    rms_cols = [f"rms_mag_{b}" for b in bands]
-    chi2_cols = [f"chi2_{b}" for b in bands]
-
-    # Fill NaN with 0 for nobs and pick best band per row
-    nobs_arr = df[nobs_cols].fillna(0).values  # (N, 3)
-    best = np.argmax(nobs_arr, axis=1)
-    rows = np.arange(len(df))
-
-    rms_arr = df[rms_cols].values
-    chi2_arr = df[chi2_cols].values
-
-    amplitude = rms_arr[rows, best]
-    nobs = nobs_arr[rows, best]
-    chi2 = chi2_arr[rows, best]
-    n_filters = (nobs_arr > 0).sum(axis=1)
-
-    # Reduced chi-squared: chi2 / (nobs - 1), guarding against div-by-zero
-    chi2_red = np.where(nobs > 1, chi2 / (nobs - 1), 0.0)
-
-    return amplitude, nobs, chi2_red, n_filters
 
 
 def _normalise(arr):
@@ -53,6 +23,10 @@ def _normalise(arr):
 
 def score_candidates(cat_a, cat_b):
     """Score and rank cross-match candidates.
+
+    Uses pre-computed best-band stats from the crossmatch pivot step:
+    best_amplitude, best_nobs, best_chiSQ, n_filters, plus galactic
+    latitude and Gaia G-mag for Category B.
 
     Parameters
     ----------
@@ -72,12 +46,14 @@ def score_candidates(cat_a, cat_b):
         df["score"] = []
         return df
 
-    # Variability statistics
-    amplitude, nobs, chi2_red, n_filters = _best_band_stats(df)
-    df["amplitude"] = amplitude
-    df["nobs"] = nobs
+    amplitude = df["best_amplitude"].fillna(0).values
+    nobs = df["best_nobs"].fillna(0).values
+    chi2 = df["best_chisq"].fillna(0).values
+    n_filters = df["n_filters"].fillna(0).values
+
+    # Reduced chi-squared
+    chi2_red = np.where(nobs > 1, chi2 / (nobs - 1), 0.0)
     df["chi2_red"] = chi2_red
-    df["n_filters"] = n_filters
 
     # Galactic latitude
     coords = SkyCoord(ra=df["ra"].values * u.deg, dec=df["dec"].values * u.deg)
@@ -97,7 +73,6 @@ def score_candidates(cat_a, cat_b):
     is_b = df["category"] == "B"
     if is_b.any():
         g_mag = df.loc[is_b, "gaia_g_mag"].values
-        # Invert: brighter (lower mag) → higher score
         g_score = _normalise(-g_mag)
         score[is_b.values] += w["gaia_g_mag"] * g_score
 

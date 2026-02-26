@@ -12,13 +12,82 @@ from .config import XMATCH_RADIUS_ARCSEC
 logger = logging.getLogger(__name__)
 
 
+def _pivot_ztf_by_filter(ztf_df):
+    """Pivot ZTF per-(oid, filter) rows into one row per oid.
+
+    The ZTF objects table has one row per (oid, filter). We aggregate
+    across filters so each physical source is a single row with
+    per-filter columns and best-band summary stats.
+    """
+    # Gator returns lowercase column names; normalise for safety
+    ztf_df.columns = [c.lower() for c in ztf_df.columns]
+
+    # Keep one positional entry per oid (they're the same across filters)
+    pos = ztf_df.groupby("oid")[["ra", "dec"]].first()
+
+    # Pivot variability stats by filter
+    filter_map = {1: "g", 2: "r", 3: "i"}
+    ztf_df = ztf_df.copy()
+    ztf_df["band"] = ztf_df["fid"].map(filter_map)
+
+    stat_cols = [
+        "nobs", "ngoodobs", "meanmag", "medianmag", "minmag", "maxmag",
+        "magrms", "weightedmagrms", "weightedmeanmag",
+        "chisq", "medmagerr",
+        "stetsonj", "stetsonk", "vonneumannratio",
+        "skewness", "smallkurtosis",
+    ]
+
+    pivoted = pos.copy()
+    pivoted["n_filters"] = ztf_df.groupby("oid")["fid"].nunique()
+    pivoted["transient"] = ztf_df.groupby("oid")["transient"].max()
+
+    for col in stat_cols:
+        if col not in ztf_df.columns:
+            continue
+        piv = ztf_df.pivot_table(index="oid", columns="band", values=col)
+        piv.columns = [f"{col}_{b}" for b in piv.columns]
+        pivoted = pivoted.join(piv, how="left")
+
+    # Best-band summary: pick band with most observations
+    for band in ["g", "r", "i"]:
+        col = f"nobs_{band}"
+        if col not in pivoted.columns:
+            pivoted[col] = 0
+    nobs_cols = [f"nobs_{b}" for b in ["g", "r", "i"]]
+    nobs_arr = pivoted[nobs_cols].fillna(0).values
+    best_idx = np.argmax(nobs_arr, axis=1)
+    bands = ["g", "r", "i"]
+    rows = np.arange(len(pivoted))
+
+    def _pick_best(col_base):
+        cols = [f"{col_base}_{b}" for b in bands]
+        for c in cols:
+            if c not in pivoted.columns:
+                pivoted[c] = np.nan
+        arr = pivoted[cols].values
+        return arr[rows, best_idx]
+
+    pivoted["best_nobs"] = _pick_best("nobs")
+    pivoted["best_magrms"] = _pick_best("magrms")
+    pivoted["best_chisq"] = _pick_best("chisq")
+    pivoted["best_meanmag"] = _pick_best("meanmag")
+    pivoted["best_minmag"] = _pick_best("minmag")
+    pivoted["best_maxmag"] = _pick_best("maxmag")
+    pivoted["best_amplitude"] = pivoted["best_maxmag"] - pivoted["best_minmag"]
+    pivoted["best_stetsonj"] = _pick_best("stetsonj")
+    pivoted["best_vonneumannratio"] = _pick_best("vonneumannratio")
+
+    return pivoted.reset_index()
+
+
 def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
     """Positional cross-match ZTF objects against Gaia DR3.
 
     Parameters
     ----------
     ztf_table : astropy.table.Table
-        ZTF DR23 objects.
+        ZTF DR23 objects (one row per oid+filter).
     gaia_sources_table : astropy.table.Table
         Gaia DR3 source catalog.
     gaia_variables_table : astropy.table.Table
@@ -31,10 +100,10 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
     cat_b : pd.DataFrame
         Category B — ZTF sources matched to Gaia but not in vari_summary.
     """
-    ztf_df = ztf_table.to_pandas()
+    # Pivot ZTF to one row per source
+    ztf_df = _pivot_ztf_by_filter(ztf_table.to_pandas())
     gaia_src_df = gaia_sources_table.to_pandas()
 
-    # Build set of known Gaia variable source_ids
     gaia_var_ids = set(gaia_variables_table["source_id"])
     logger.info(
         "Cross-matching %d ZTF sources against %d Gaia sources "
@@ -51,18 +120,17 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
         dec=gaia_src_df["dec"].values * u.deg,
     )
 
-    # Match each ZTF source to its nearest Gaia neighbour
     idx, sep2d, _ = ztf_coords.match_to_catalog_sky(gaia_coords)
     matched = sep2d.arcsec <= XMATCH_RADIUS_ARCSEC
 
-    # ── Category A: no Gaia match ──────────────────────────────────────
+    # Category A: no Gaia match
     cat_a = ztf_df[~matched].copy()
     cat_a["category"] = "A"
     cat_a["gaia_source_id"] = np.nan
     cat_a["gaia_g_mag"] = np.nan
     logger.info("Category A (no Gaia match): %d sources", len(cat_a))
 
-    # ── Category B: Gaia match but NOT a known variable ────────────────
+    # Category B: Gaia match but NOT a known variable
     matched_ztf = ztf_df[matched].copy()
     matched_gaia_idx = idx[matched]
     matched_ztf["gaia_source_id"] = gaia_src_df.iloc[matched_gaia_idx][
