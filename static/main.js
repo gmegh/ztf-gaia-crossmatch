@@ -113,6 +113,9 @@ function renderTable() {
         var amp = c.amplitude != null ? c.amplitude.toFixed(3) : "\u2014";
         var nobs = c.nobs != null ? Math.round(c.nobs) : "\u2014";
         var gmag = c.gaia_g_mag != null ? c.gaia_g_mag.toFixed(1) : "\u2014";
+        var ztfSep = c.nearest_ztf_sep != null ? c.nearest_ztf_sep.toFixed(1) + "\u2033" : "\u2014";
+        var ztfMag = c.nearest_ztf_mag != null ? c.nearest_ztf_mag.toFixed(1) : "\u2014";
+        var magDiff = c.nearest_ztf_mag_diff != null ? c.nearest_ztf_mag_diff.toFixed(1) : "\u2014";
         var surveys = c.survey_matches || "";
 
         html += '<tr class="cat-' + catLower + '-row">'
@@ -125,6 +128,9 @@ function renderTable() {
             + "<td>" + amp + "</td>"
             + "<td>" + nobs + "</td>"
             + "<td>" + gmag + "</td>"
+            + "<td>" + ztfSep + "</td>"
+            + "<td>" + ztfMag + "</td>"
+            + "<td>" + magDiff + "</td>"
             + "<td>" + surveys + "</td>"
             + "</tr>";
     }
