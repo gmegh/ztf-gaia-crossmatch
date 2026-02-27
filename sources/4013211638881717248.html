@@ -89,8 +89,14 @@
 <nav class="source-nav">
     <span class="nav-prev disabled">&larr; Previous</span>
     <a href="../index.html">Back to list</a>
-    <a href="4013155014033743872.html" class="nav-next">Next &rarr;</a>
+    <a href="4013155014033743872.html" class="nav-next" id="nav-next">Next &rarr;</a>
 </nav>
+<script>
+document.addEventListener("keydown", function(e) {
+    if (e.key === "ArrowLeft") { var el = document.getElementById("nav-prev"); if (el) el.click(); }
+    if (e.key === "ArrowRight") { var el = document.getElementById("nav-next"); if (el) el.click(); }
+});
+</script>
 
     </main>
     <footer>

@@ -87,10 +87,16 @@
 </div>
 
 <nav class="source-nav">
-    <a href="28145783979776768.html" class="nav-prev">&larr; Previous</a>
+    <a href="28145783979776768.html" class="nav-prev" id="nav-prev">&larr; Previous</a>
     <a href="../cat_c_survey.html">Back to list</a>
-    <a href="193605409033542016.html" class="nav-next">Next &rarr;</a>
+    <a href="193605409033542016.html" class="nav-next" id="nav-next">Next &rarr;</a>
 </nav>
+<script>
+document.addEventListener("keydown", function(e) {
+    if (e.key === "ArrowLeft") { var el = document.getElementById("nav-prev"); if (el) el.click(); }
+    if (e.key === "ArrowRight") { var el = document.getElementById("nav-next"); if (el) el.click(); }
+});
+</script>
 
     </main>
     <footer>
