@@ -95,9 +95,16 @@
     <a href="671202400028551.html" class="nav-next" id="nav-next">Next &rarr;</a>
 </nav>
 <script>
+document.body.setAttribute("tabindex", "-1");
+document.body.focus();
 document.addEventListener("keydown", function(e) {
-    if (e.key === "ArrowLeft") { var el = document.getElementById("nav-prev"); if (el) el.click(); }
-    if (e.key === "ArrowRight") { var el = document.getElementById("nav-next"); if (el) el.click(); }
+    var el;
+    if (e.key === "ArrowLeft") el = document.getElementById("nav-prev");
+    if (e.key === "ArrowRight") el = document.getElementById("nav-next");
+    if (el) {
+        el.classList.add("nav-active");
+        setTimeout(function() { el.click(); }, 120);
+    }
 });
 </script>
 

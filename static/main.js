@@ -17,6 +17,8 @@ function init() {
     // Detect Cat C survey page (candidates have no "category" field or all are "C")
     if (allCandidates.length > 0 && allCandidates[0].category === undefined) {
         isCatCSurvey = true;
+        sortColumn = "gaia_g_mag";
+        sortAsc = true;  // brightest first
     }
 
     sortData();
@@ -85,8 +87,9 @@ function setupSortHeaders() {
     });
 
     // Mark the default sort column
-    var defaultTh = document.querySelector('th[data-sort="score"]');
-    if (defaultTh) defaultTh.classList.add("sort-desc");
+    var defaultCol = isCatCSurvey ? "gaia_g_mag" : "score";
+    var defaultTh = document.querySelector('th[data-sort="' + defaultCol + '"]');
+    if (defaultTh) defaultTh.classList.add(isCatCSurvey ? "sort-asc" : "sort-desc");
 }
 
 function sortData() {
