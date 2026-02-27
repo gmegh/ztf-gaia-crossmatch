@@ -10,12 +10,16 @@
 <body>
     <header>
         <h1><a href="{{ url_prefix }}index.html">ZTF–Gaia Cross-Match</a></h1>
+        <nav class="tab-nav">
+            <a href="{{ url_prefix }}index.html" class="tab-link {% block tab_pilot %}{% endblock %}">Pilot Tile</a>
+            <a href="{{ url_prefix }}cat_c_survey.html" class="tab-link {% block tab_survey %}{% endblock %}">Cat C Survey</a>
+        </nav>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
     <footer>
-        <p>ZTF–Gaia Cross-Match Pipeline</p>
+        <p>&copy; 2025 California Institute of Technology</p>
     </footer>
     <script src="{{ url_prefix }}static/main.js"></script>
 </body>

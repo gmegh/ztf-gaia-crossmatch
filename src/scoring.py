@@ -24,6 +24,58 @@ def _normalise(arr):
     return (arr - lo) / (hi - lo)
 
 
+def score_cat_c(cat_c):
+    """Score and rank Category C (Gaia-only) candidates.
+
+    Score = 0.6 * norm(-gaia_g_mag) + 0.4 * norm(gal_lat_abs).
+    Applies brightness filter (>= 14.5 mag).
+
+    Parameters
+    ----------
+    cat_c : pd.DataFrame
+        Category C candidates.
+
+    Returns
+    -------
+    pd.DataFrame
+        Scored and sorted Cat C candidates.
+    """
+    df = cat_c.copy()
+    if len(df) == 0:
+        df["score"] = []
+        return df
+
+    # Brightness filter
+    n_before = len(df)
+    bad = df["gaia_g_mag"].isna() | (df["gaia_g_mag"] < BRIGHT_MAG_LIMIT)
+    df = df[~bad].reset_index(drop=True)
+    logger.info(
+        "Cat C scoring: brightness filter removed %d / %d (require >= %.1f mag)",
+        n_before - len(df), n_before, BRIGHT_MAG_LIMIT,
+    )
+
+    if len(df) == 0:
+        df["score"] = []
+        return df
+
+    # Galactic latitude
+    coords = SkyCoord(ra=df["ra"].values * u.deg, dec=df["dec"].values * u.deg)
+    df["gal_lat_abs"] = np.abs(coords.galactic.b.deg)
+
+    g_mag = df["gaia_g_mag"].fillna(21).values
+    gal_lat = df["gal_lat_abs"].values
+    df["score"] = 0.6 * _normalise(-g_mag) + 0.4 * _normalise(gal_lat)
+
+    df = df.sort_values("score", ascending=False).reset_index(drop=True)
+    logger.info(
+        "Scored %d Cat C candidates. Top score: %.3f, Median: %.3f",
+        len(df),
+        df["score"].iloc[0] if len(df) > 0 else 0,
+        df["score"].median(),
+    )
+    return df
+
+
 def score_candidates(cat_a, cat_b, cat_c):
     """Score and rank cross-match candidates.
 

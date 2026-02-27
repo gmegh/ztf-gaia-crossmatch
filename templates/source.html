@@ -107,5 +107,5 @@
     </div>
 </div>
 
-<p><a href="{{ url_prefix }}index.html">&larr; Back to candidate list</a></p>
+<p><a href="{{ url_prefix }}{{ back_page | default('index.html') }}">&larr; Back to candidate list</a></p>
 {% endblock %}

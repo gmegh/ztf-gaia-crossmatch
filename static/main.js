@@ -13,8 +13,13 @@ function init() {
     if (!dataEl) return;
     allCandidates = JSON.parse(dataEl.textContent);
     filteredCandidates = [...allCandidates];
-    sortData();
 
+    // Detect Cat C survey page (candidates have no "category" field or all are "C")
+    if (allCandidates.length > 0 && allCandidates[0].category === undefined) {
+        isCatCSurvey = true;
+    }
+
+    sortData();
     setupStatCards();
     setupSortHeaders();
     renderTable();
@@ -99,6 +104,9 @@ function sortData() {
 
 /* ── Table rendering ──────────────────────────────────────────────── */
 
+// Detect page type: Cat C survey has no "category" column in data
+var isCatCSurvey = false;
+
 function renderTable() {
     var tbody = document.getElementById("candidates-tbody");
     if (!tbody) return;
@@ -109,30 +117,50 @@ function renderTable() {
     var html = "";
     for (var i = 0; i < page.length; i++) {
         var c = page[i];
-        var catLower = c.category.toLowerCase();
-        var amp = c.amplitude != null ? c.amplitude.toFixed(3) : "\u2014";
-        var nobs = c.nobs != null ? Math.round(c.nobs) : "\u2014";
-        var gmag = c.gaia_g_mag != null ? c.gaia_g_mag.toFixed(1) : "\u2014";
-        var ztfSep = c.nearest_ztf_sep != null ? c.nearest_ztf_sep.toFixed(1) + "\u2033" : "\u2014";
-        var ztfMag = c.nearest_ztf_mag != null ? c.nearest_ztf_mag.toFixed(1) : "\u2014";
-        var magDiff = c.nearest_ztf_mag_diff != null ? c.nearest_ztf_mag_diff.toFixed(1) : "\u2014";
-        var surveys = c.survey_matches || "";
 
-        html += '<tr class="cat-' + catLower + '-row">'
-            + "<td>" + (start + i + 1) + "</td>"
-            + '<td><a href="sources/' + c.id + '.html">' + c.id + "</a></td>"
-            + "<td>" + c.ra.toFixed(5) + "</td>"
-            + "<td>" + c.dec.toFixed(5) + "</td>"
-            + '<td><span class="cat-badge cat-' + catLower + '">' + c.category + "</span></td>"
-            + "<td>" + c.score.toFixed(3) + "</td>"
-            + "<td>" + amp + "</td>"
-            + "<td>" + nobs + "</td>"
-            + "<td>" + gmag + "</td>"
-            + "<td>" + ztfSep + "</td>"
-            + "<td>" + ztfMag + "</td>"
-            + "<td>" + magDiff + "</td>"
-            + "<td>" + surveys + "</td>"
-            + "</tr>";
+        if (isCatCSurvey) {
+            var gmag = c.gaia_g_mag != null ? c.gaia_g_mag.toFixed(1) : "\u2014";
+            var ztfSep = c.nearest_ztf_sep != null ? c.nearest_ztf_sep.toFixed(1) + "\u2033" : "\u2014";
+            var ztfMag = c.nearest_ztf_mag != null ? c.nearest_ztf_mag.toFixed(1) : "\u2014";
+            var magDiff = c.nearest_ztf_mag_diff != null ? c.nearest_ztf_mag_diff.toFixed(1) : "\u2014";
+
+            html += '<tr>'
+                + "<td>" + (start + i + 1) + "</td>"
+                + '<td><a href="sources/' + c.id + '.html">' + c.id + "</a></td>"
+                + "<td>" + c.ra.toFixed(5) + "</td>"
+                + "<td>" + c.dec.toFixed(5) + "</td>"
+                + "<td>" + c.score.toFixed(3) + "</td>"
+                + "<td>" + gmag + "</td>"
+                + "<td>" + ztfSep + "</td>"
+                + "<td>" + ztfMag + "</td>"
+                + "<td>" + magDiff + "</td>"
+                + "</tr>";
+        } else {
+            var catLower = c.category.toLowerCase();
+            var amp = c.amplitude != null ? c.amplitude.toFixed(3) : "\u2014";
+            var nobs = c.nobs != null ? Math.round(c.nobs) : "\u2014";
+            var gmag = c.gaia_g_mag != null ? c.gaia_g_mag.toFixed(1) : "\u2014";
+            var ztfSep = c.nearest_ztf_sep != null ? c.nearest_ztf_sep.toFixed(1) + "\u2033" : "\u2014";
+            var ztfMag = c.nearest_ztf_mag != null ? c.nearest_ztf_mag.toFixed(1) : "\u2014";
+            var magDiff = c.nearest_ztf_mag_diff != null ? c.nearest_ztf_mag_diff.toFixed(1) : "\u2014";
+            var surveys = c.survey_matches || "";
+
+            html += '<tr class="cat-' + catLower + '-row">'
+                + "<td>" + (start + i + 1) + "</td>"
+                + '<td><a href="sources/' + c.id + '.html">' + c.id + "</a></td>"
+                + "<td>" + c.ra.toFixed(5) + "</td>"
+                + "<td>" + c.dec.toFixed(5) + "</td>"
+                + '<td><span class="cat-badge cat-' + catLower + '">' + c.category + "</span></td>"
+                + "<td>" + c.score.toFixed(3) + "</td>"
+                + "<td>" + amp + "</td>"
+                + "<td>" + nobs + "</td>"
+                + "<td>" + gmag + "</td>"
+                + "<td>" + ztfSep + "</td>"
+                + "<td>" + ztfMag + "</td>"
+                + "<td>" + magDiff + "</td>"
+                + "<td>" + surveys + "</td>"
+                + "</tr>";
+        }
     }
     tbody.innerHTML = html;
 }

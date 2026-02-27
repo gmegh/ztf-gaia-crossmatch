@@ -222,3 +222,103 @@ def crossmatch(ztf_table, gaia_sources_table, gaia_variables_table):
     )
 
     return cat_a, cat_b, cat_c
+
+
+def crossmatch_cat_c_only(ztf_positions_table, gaia_sources_table,
+                          gaia_variables_table):
+    """Cat C-only cross-match using lightweight ZTF positions.
+
+    Parameters
+    ----------
+    ztf_positions_table : astropy.table.Table
+        ZTF positions (oid, ra, dec, fid, meanmag) — one row per (oid, fid).
+    gaia_sources_table : astropy.table.Table
+        Gaia DR3 source catalog.
+    gaia_variables_table : astropy.table.Table
+        Gaia DR3 variable summary (source_id, ra, dec).
+
+    Returns
+    -------
+    pd.DataFrame
+        Category C candidates (Gaia sources with no ZTF counterpart).
+    """
+    ztf_df = ztf_positions_table.to_pandas()
+    ztf_df.columns = [c.lower() for c in ztf_df.columns]
+
+    # Aggregate to one row per oid: keep position and best (brightest) meanmag
+    ztf_agg = ztf_df.groupby("oid").agg(
+        ra=("ra", "first"),
+        dec=("dec", "first"),
+        best_meanmag=("meanmag", "min"),  # brightest magnitude
+    ).reset_index()
+
+    gaia_src_df = gaia_sources_table.to_pandas()
+    gaia_src_df.columns = [c.lower() for c in gaia_src_df.columns]
+    gaia_var_ids = set(gaia_variables_table["source_id"])
+
+    logger.info(
+        "Cat C-only cross-match: %d ZTF sources against %d Gaia sources "
+        "(%d known variables)",
+        len(ztf_agg), len(gaia_src_df), len(gaia_var_ids),
+    )
+
+    ztf_coords = SkyCoord(
+        ra=ztf_agg["ra"].values * u.deg,
+        dec=ztf_agg["dec"].values * u.deg,
+    )
+    gaia_coords = SkyCoord(
+        ra=gaia_src_df["ra"].values * u.deg,
+        dec=gaia_src_df["dec"].values * u.deg,
+    )
+
+    # Reverse match: Gaia → nearest ZTF
+    gaia_idx, gaia_sep2d, _ = gaia_coords.match_to_catalog_sky(ztf_coords)
+    gaia_has_ztf = gaia_sep2d.arcsec <= XMATCH_RADIUS_ARCSEC
+
+    unmatched_gaia = gaia_src_df[~gaia_has_ztf].copy()
+    is_gaia_var = unmatched_gaia["source_id"].isin(gaia_var_ids)
+    cat_c = unmatched_gaia[~is_gaia_var].copy()
+    cat_c["category"] = "C"
+    cat_c["oid"] = np.nan
+    cat_c["gaia_source_id"] = cat_c["source_id"]
+    cat_c["gaia_g_mag"] = cat_c["phot_g_mean_mag"]
+
+    # Soft-match false positive removal
+    cat_c_orig_idx = cat_c.index.values
+    nearest_sep = gaia_sep2d.arcsec[cat_c_orig_idx]
+    nearest_ztf = gaia_idx[cat_c_orig_idx]
+    nearest_ztf_mag = ztf_agg.iloc[nearest_ztf]["best_meanmag"].values
+    cat_c_gmag = cat_c["phot_g_mean_mag"].values
+
+    in_soft_radius = nearest_sep <= SOFT_MATCH_RADIUS_ARCSEC
+    mag_diff = np.abs(cat_c_gmag - nearest_ztf_mag)
+    mag_consistent = np.isfinite(mag_diff) & (mag_diff < SOFT_MATCH_MAG_TOL)
+    false_positive = in_soft_radius & mag_consistent
+
+    n_fp = false_positive.sum()
+    cat_c = cat_c[~false_positive].copy()
+
+    logger.info(
+        "Cat C-only: %d sources (discarded %d known variables, "
+        "%d soft-match false positives within %.1f\" with |Δmag| < %.1f)",
+        len(cat_c), is_gaia_var.sum(), n_fp,
+        SOFT_MATCH_RADIUS_ARCSEC, SOFT_MATCH_MAG_TOL,
+    )
+
+    # Store nearest ZTF info capped at 2"
+    NEARBY_RADIUS_ARCSEC = 2.0
+    remaining_idx = cat_c.index.values
+    remaining_sep = gaia_sep2d.arcsec[remaining_idx]
+    remaining_nearest_ztf = gaia_idx[remaining_idx]
+    remaining_ztf_mag = ztf_agg.iloc[remaining_nearest_ztf]["best_meanmag"].values
+
+    nearby = remaining_sep <= NEARBY_RADIUS_ARCSEC
+    cat_c["nearest_ztf_sep"] = np.where(nearby, remaining_sep, np.nan)
+    cat_c["nearest_ztf_mag"] = np.where(nearby, remaining_ztf_mag, np.nan)
+    cat_c["nearest_ztf_mag_diff"] = np.where(
+        nearby,
+        np.abs(cat_c["phot_g_mean_mag"].values - remaining_ztf_mag),
+        np.nan,
+    )
+
+    return cat_c

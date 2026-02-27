@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 IRSA_LOGIN_URL = "https://irsa.ipac.caltech.edu/account/signon/login.do"
 IRSA_GATOR_URL = "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query"
 
+# Lightweight columns for Cat C-only processing (positions + brightness)
+ZTF_POSITION_COLUMNS = ["oid", "ra", "dec", "fid", "meanMag"]
+
 # Columns we need from ZTF objects catalog
 ZTF_COLUMNS = [
     "oid", "ra", "dec", "fid", "filtercode", "transient",
@@ -70,7 +73,8 @@ def _get_irsa_session():
 GATOR_MAX_BOX_ARCSEC = 1200  # Gator limit for box searches
 
 
-def _gator_box_query(session, ra_cen, dec_cen, box_arcsec, description=""):
+def _gator_box_query(session, ra_cen, dec_cen, box_arcsec, description="",
+                     columns=None):
     """Single Gator box query with retry."""
     params = {
         "catalog": "ztf_objects_dr23",
@@ -78,7 +82,7 @@ def _gator_box_query(session, ra_cen, dec_cen, box_arcsec, description=""):
         "objstr": f"{ra_cen} {dec_cen}",
         "size": str(int(box_arcsec)),
         "outfmt": "3",  # VOTable
-        "selcols": ",".join(ZTF_COLUMNS),
+        "selcols": ",".join(columns or ZTF_COLUMNS),
     }
     for attempt in range(1, TAP_MAX_RETRIES + 1):
         try:
@@ -159,6 +163,69 @@ def query_ztf_objects(ra_min, ra_max, dec_min, dec_max):
     df = df.drop_duplicates(subset=["oid", "fid"])
     logger.info(
         "ZTF Gator: %d total rows, %d after dedup (removed %d duplicates)",
+        before, len(df), before - len(df),
+    )
+    return Table.from_pandas(df)
+
+
+def query_ztf_positions(ra_min, ra_max, dec_min, dec_max):
+    """Query ZTF DR23 positions and mean magnitudes via IRSA Gator.
+
+    Lightweight variant of query_ztf_objects() that fetches only
+    oid, ra, dec, fid, meanMag — sufficient for Cat C cross-matching.
+    """
+    ra_size_arcsec = (ra_max - ra_min) * 3600
+    dec_size_arcsec = (dec_max - dec_min) * 3600
+
+    session = _get_irsa_session()
+
+    if max(ra_size_arcsec, dec_size_arcsec) <= GATOR_MAX_BOX_ARCSEC:
+        ra_cen = (ra_min + ra_max) / 2
+        dec_cen = (dec_min + dec_max) / 2
+        box = max(ra_size_arcsec, dec_size_arcsec)
+        logger.info(
+            "ZTF positions Gator query: single box %.0f arcsec at (%.3f, %.3f)",
+            box, ra_cen, dec_cen,
+        )
+        return _gator_box_query(
+            session, ra_cen, dec_cen, box, "ZTF positions",
+            columns=ZTF_POSITION_COLUMNS,
+        )
+
+    step_deg = GATOR_MAX_BOX_ARCSEC / 3600
+    ra_centers = np.arange(ra_min + step_deg / 2, ra_max, step_deg)
+    dec_centers = np.arange(dec_min + step_deg / 2, dec_max, step_deg)
+    n_chunks = len(ra_centers) * len(dec_centers)
+    logger.info(
+        "ZTF positions Gator query: area %.2f x %.2f deg → %d sub-boxes",
+        ra_max - ra_min, dec_max - dec_min, n_chunks,
+    )
+
+    tables = []
+    for i, ra_c in enumerate(ra_centers):
+        for j, dec_c in enumerate(dec_centers):
+            chunk_id = i * len(dec_centers) + j + 1
+            desc = f"ZTF pos chunk {chunk_id}/{n_chunks}"
+            try:
+                t = _gator_box_query(
+                    session, ra_c, dec_c, GATOR_MAX_BOX_ARCSEC, desc,
+                    columns=ZTF_POSITION_COLUMNS,
+                )
+                if len(t) > 0:
+                    tables.append(t)
+                    logger.info("  %s: %d rows", desc, len(t))
+            except Exception as exc:
+                logger.warning("  %s failed, skipping: %s", desc, exc)
+
+    if not tables:
+        return Table()
+
+    combined = vstack(tables)
+    df = combined.to_pandas()
+    before = len(df)
+    df = df.drop_duplicates(subset=["oid", "fid"])
+    logger.info(
+        "ZTF positions: %d total rows, %d after dedup (removed %d duplicates)",
         before, len(df), before - len(df),
     )
     return Table.from_pandas(df)

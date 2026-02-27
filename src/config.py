@@ -8,13 +8,15 @@ import numpy as np
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 TILES_DIR = DATA_DIR / "tiles"
+TILES_CAT_C_DIR = DATA_DIR / "tiles_cat_c"
 RESULTS_DIR = ROOT_DIR / "results"
 WEBSITE_DIR = ROOT_DIR / "website"
 TEMPLATES_DIR = ROOT_DIR / "templates"
 PROGRESS_FILE = DATA_DIR / "progress.json"
+PROGRESS_CAT_C_FILE = DATA_DIR / "progress_cat_c.json"
 
 # Ensure directories exist
-for d in [DATA_DIR, TILES_DIR, RESULTS_DIR, WEBSITE_DIR]:
+for d in [DATA_DIR, TILES_DIR, TILES_CAT_C_DIR, RESULTS_DIR, WEBSITE_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 # ── TAP endpoints ──────────────────────────────────────────────────────

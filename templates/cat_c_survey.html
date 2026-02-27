@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Cat C Survey — ZTF–Gaia Cross-Match{% endblock %}
+{% block tab_survey %}active{% endblock %}
+{% block content %}
+
+<h2>Cat C Wide-Sky Survey</h2>
+<p>
+    Gaia sources with <strong>no ZTF counterpart</strong> — expanded from the pilot tile
+    to {{ tiles_processed }} tiles across the northern sky.
+    These are sources that Gaia sees but ZTF does not detect within {{ xmatch_radius }}&Prime;.
+</p>
+
+<h2>Sky Coverage</h2>
+<div class="coverage-grid">
+    <div class="coverage-card">
+        <span class="coverage-number">{{ tiles_processed }}</span>
+        <span class="coverage-label">HEALPix tiles processed</span>
+    </div>
+    <div class="coverage-card">
+        <span class="coverage-number">{{ "%.1f"|format(area_sq_deg) }} deg&sup2;</span>
+        <span class="coverage-label">Sky area surveyed</span>
+    </div>
+    <div class="coverage-card">
+        <span class="coverage-number">{{ "%.2f"|format(sky_fraction * 100) }}%</span>
+        <span class="coverage-label">of full sky</span>
+    </div>
+</div>
+<p style="font-size:0.85rem; color:#555;">
+    Cross-match radius: {{ xmatch_radius }}&Prime; &nbsp;|&nbsp;
+    Bright mag limit: {{ bright_mag_limit }} mag &nbsp;|&nbsp;
+    HEALPix nside={{ nside }} ({{ total_tiles }} tiles total)
+</p>
+
+<h2>Candidate Summary</h2>
+<div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="stat-card">
+        <span class="stat-number">{{ total_candidates | default(0) }}</span>
+        <span class="stat-label">Total Cat C Candidates</span>
+    </div>
+    <div class="stat-card cat-c">
+        <span class="stat-number">{{ total_candidates | default(0) }}</span>
+        <span class="stat-label">Category C<br><small>Gaia only (no ZTF match)</small></span>
+    </div>
+</div>
+
+<h2 id="candidates-table">Top Candidates</h2>
+<div id="pagination" class="pagination"></div>
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr>
+            <th data-sort="rank">Rank</th>
+            <th data-sort="id">Gaia Source ID</th>
+            <th data-sort="ra">RA</th>
+            <th data-sort="dec">Dec</th>
+            <th data-sort="score" title="Score = 0.6 × norm(brightness) + 0.4 × norm(galactic latitude). Brighter Gaia sources that ZTF misses are more interesting.">Score</th>
+            <th data-sort="gaia_g_mag" title="Gaia G-band mean magnitude.">Gaia G</th>
+            <th data-sort="nearest_ztf_sep" title="Angular separation to nearest ZTF catalog source (arcsec), capped at 2&Prime;.">ZTF cat sep</th>
+            <th data-sort="nearest_ztf_mag" title="Mean magnitude of nearest ZTF catalog source.">ZTF cat mag</th>
+            <th data-sort="nearest_ztf_mag_diff" title="Absolute magnitude difference |Gaia G − nearest ZTF catalog mag|.">|&Delta;mag|</th>
+        </tr>
+    </thead>
+    <tbody id="candidates-tbody">
+    </tbody>
+</table>
+</div>
+<div id="pagination-bottom" class="pagination"></div>
+
+<!-- Candidate data as JSON for JS rendering -->
+<script id="candidate-data" type="application/json">{{ candidates_json }}</script>
+
+<details style="margin:1rem 0;">
+    <summary>Column Definitions</summary>
+    <dl class="column-legend">
+        <dt>Score</dt>
+        <dd>Priority score (0&ndash;1) combining Gaia G brightness (60%) and absolute galactic latitude (40%). Brighter Gaia sources missing from ZTF are scored higher.</dd>
+        <dt>Gaia G</dt>
+        <dd>Mean apparent magnitude in the Gaia G band (330&ndash;1050 nm).</dd>
+        <dt>ZTF cat sep</dt>
+        <dd>Angular separation (arcsec) to the nearest ZTF catalog source within 2&Prime;. Sources within 2&Prime; with consistent brightness were already removed as false positives.</dd>
+        <dt>ZTF cat mag</dt>
+        <dd>Mean magnitude of the nearest ZTF catalog source.</dd>
+        <dt>|&Delta;mag|</dt>
+        <dd>Absolute magnitude difference between Gaia G and the nearest ZTF catalog source.</dd>
+    </dl>
+</details>
+
+<h2>About Category C</h2>
+<p>
+    Category C sources are Gaia objects with <strong>no ZTF counterpart</strong> within {{ xmatch_radius }}&Prime;.
+    They could be very red or faint sources below ZTF detection limits, sources in ZTF chip gaps,
+    or transients that faded between Gaia and ZTF observations.
+</p>
+<p style="font-size:0.85rem; color:#555; margin-top:0.5rem;">
+    Sources brighter than <strong>{{ bright_mag_limit }} mag</strong> (Gaia G) are excluded due to ZTF saturation.
+    Known Gaia variables and soft-match false positives (ZTF source within 2&Prime; with |&Delta;mag| &lt; 2) are also removed.
+</p>
+{% endblock %}
