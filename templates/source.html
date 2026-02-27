@@ -108,8 +108,14 @@
 </div>
 
 <nav class="source-nav">
-    {% if prev_id %}<a href="{{ prev_id }}.html" class="nav-prev">&larr; Previous</a>{% else %}<span class="nav-prev disabled">&larr; Previous</span>{% endif %}
+    {% if prev_id %}<a href="{{ prev_id }}.html" class="nav-prev" id="nav-prev">&larr; Previous</a>{% else %}<span class="nav-prev disabled">&larr; Previous</span>{% endif %}
     <a href="{{ url_prefix }}{{ back_page | default('index.html') }}">Back to list</a>
-    {% if next_id %}<a href="{{ next_id }}.html" class="nav-next">Next &rarr;</a>{% else %}<span class="nav-next disabled">Next &rarr;</span>{% endif %}
+    {% if next_id %}<a href="{{ next_id }}.html" class="nav-next" id="nav-next">Next &rarr;</a>{% else %}<span class="nav-next disabled">Next &rarr;</span>{% endif %}
 </nav>
+<script>
+document.addEventListener("keydown", function(e) {
+    if (e.key === "ArrowLeft") { var el = document.getElementById("nav-prev"); if (el) el.click(); }
+    if (e.key === "ArrowRight") { var el = document.getElementById("nav-next"); if (el) el.click(); }
+});
+</script>
 {% endblock %}
