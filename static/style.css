@@ -104,6 +104,7 @@ details dl { margin-left: 1rem; }
 .source-nav { display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0; padding: 0.8rem 0; border-top: 1px solid #ddd; }
 .source-nav a, .source-nav .disabled { font-size: 0.95rem; padding: 0.4rem 0.8rem; border-radius: 4px; text-decoration: none; }
 .source-nav a:hover { background: #f0f0f0; }
+.source-nav a.nav-active { background: #0366d6; color: #fff; transition: background 0.05s; }
 .source-nav .disabled { color: #ccc; cursor: default; }
 
 /* Utility */
