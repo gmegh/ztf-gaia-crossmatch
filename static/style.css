@@ -100,6 +100,12 @@ details { margin: 0.3rem 0; }
 summary { cursor: pointer; font-weight: bold; font-size: 0.9rem; color: #0366d6; }
 details dl { margin-left: 1rem; }
 
+/* Source page prev/next navigation */
+.source-nav { display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0; padding: 0.8rem 0; border-top: 1px solid #ddd; }
+.source-nav a, .source-nav .disabled { font-size: 0.95rem; padding: 0.4rem 0.8rem; border-radius: 4px; text-decoration: none; }
+.source-nav a:hover { background: #f0f0f0; }
+.source-nav .disabled { color: #ccc; cursor: default; }
+
 /* Utility */
 .muted { color: #888; font-style: italic; font-size: 0.9rem; }
 footer { margin-top: 2rem; border-top: 1px solid #ddd; padding: 0.8rem 0; color: #888; font-size: 0.85rem; text-align: center; }

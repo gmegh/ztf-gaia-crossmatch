@@ -102,7 +102,7 @@ def _coverage_stats(progress_file=None):
 
 
 def _build_source_page(source_tmpl, sources_dir, row, lc_paths, survey_results,
-                       back_page="index.html"):
+                       back_page="index.html", prev_id=None, next_id=None):
     """Generate a single source detail page."""
     ident = _source_id(row)
     surveys = survey_results.get(ident, {})
@@ -140,6 +140,7 @@ def _build_source_page(source_tmpl, sources_dir, row, lc_paths, survey_results,
 
     html = source_tmpl.render(
         url_prefix="../", source=source_data, back_page=back_page,
+        prev_id=prev_id, next_id=next_id,
     )
     (sources_dir / f"{ident}.html").write_text(html)
     return ident
@@ -172,6 +173,8 @@ def generate_website(candidates, lc_paths=None, survey_results=None, n_top=100,
     # Prepare output directories
     WEBSITE_DIR.mkdir(parents=True, exist_ok=True)
     sources_dir = WEBSITE_DIR / "sources"
+    if sources_dir.exists():
+        shutil.rmtree(sources_dir)
     sources_dir.mkdir(exist_ok=True)
 
     # Copy static assets
@@ -239,9 +242,13 @@ def generate_website(candidates, lc_paths=None, survey_results=None, n_top=100,
 
     # -- Pilot source pages --
     source_tmpl = env.get_template("source.html")
-    for _, row in top.iterrows():
+    pilot_ids = [_source_id(row) for _, row in top.iterrows()]
+    for i, (_, row) in enumerate(top.iterrows()):
+        prev_id = pilot_ids[i - 1] if i > 0 else None
+        next_id = pilot_ids[i + 1] if i < len(pilot_ids) - 1 else None
         _build_source_page(source_tmpl, sources_dir, row, lc_paths,
-                           survey_results, back_page="index.html")
+                           survey_results, back_page="index.html",
+                           prev_id=prev_id, next_id=next_id)
 
     logger.info("Generated %d pilot source pages", len(top))
 
@@ -281,9 +288,13 @@ def generate_website(candidates, lc_paths=None, survey_results=None, n_top=100,
         )
 
         # Source pages for Cat C survey candidates (shared directory)
-        for _, row in survey_top.iterrows():
+        survey_ids = [str(int(row["gaia_source_id"])) for _, row in survey_top.iterrows()]
+        for i, (_, row) in enumerate(survey_top.iterrows()):
+            prev_id = survey_ids[i - 1] if i > 0 else None
+            next_id = survey_ids[i + 1] if i < len(survey_ids) - 1 else None
             _build_source_page(source_tmpl, sources_dir, row, {},
-                               {}, back_page="cat_c_survey.html")
+                               {}, back_page="cat_c_survey.html",
+                               prev_id=prev_id, next_id=next_id)
 
         logger.info("Generated %d Cat C survey source pages", len(survey_top))
     else:
